@@ -1,6 +1,9 @@
 from tkinter import *
 from tkinter import filedialog
 from PIL import Image, ImageFont, ImageDraw, ImageTk
+import os
+import platform
+import subprocess
 
 # TODO - Create GUI
 # Main application window
@@ -14,14 +17,21 @@ FRAME_WIDTH = 400
 FRAME_HEIGHT = 300
 
 
+initial_dir = os.path.join(os.path.expanduser("~"), "Pictures")
+
+
 # Function opens the Pictures directory.. now I just want it to work on all desktops
 def openFile():
+    global filename
+    global filepath
+    global original
 
     filepath = filedialog.askopenfilename(  # gets the file path but also opens it
-        initialdir=r"C:\Users\nicho\OneDrive\Pictures",
+        initialdir=initial_dir,
         title="Choose an image",
         filetypes=[("PNG Files", "*.png")],  # Limits it only to PNG files
     )
+    filename = os.path.basename(filepath)
     if filepath:
         original = Image.open(filepath)  # gets the original image
         resized = original.resize(
@@ -49,6 +59,50 @@ btn_open_directory.pack()
 
 
 def add_watermark():
+    # Creating RGBA overlay
+
+    global original
+    original = original.convert("RGBA")
+
+    # Prepare to draw
+    draw = ImageDraw.Draw(original)
+    font = ImageFont.truetype("arial.ttf", 46)
+    text = "Watermark"
+
+    # Measure text size
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+
+    # Calculate center coordinates on original
+    center_x = original.width // 2
+    center_y = original.height // 2
+
+    # Offset by half the text dimensions
+    position = (center_x - text_width // 2, center_y - text_height // 2)
+
+    # Draw centered watermark
+    draw.text(position, text, font=font, fill=(255, 255, 255, 128))
+
+    # width, height = original.size
+    # center_x = width // 2
+    # center_y = height // 2
+    # # Define the font
+    # text_font = ImageFont.truetype("arial.ttf", 46)
+    # # That is the text font
+    # text_to_add = "Watermark"
+
+    # # Edit image
+    # edit_image = ImageDraw.Draw(original)
+    # edit_image.text((center_x, center_y), text_to_add, font=text_font)
+
+    # Resize original image and add it to frame
+    resized = original.resize(
+        (FRAME_WIDTH, FRAME_HEIGHT), Image.LANCZOS
+    )  # resizing the image with high-quality resampling filter. Good in downsclaing
+    img = ImageTk.PhotoImage(resized)  # load the image into the label
+    image_label.config(image=img)
+    image_label.image = img
     btn_save_image.config(state=NORMAL)
 
 
@@ -59,8 +113,21 @@ btn_add_watermark = Button(
 btn_add_watermark.pack()
 
 
+def open_file(filepath):
+    if platform.system() == "Windows":
+        os.startfile(filepath)
+    elif platform.system() == "Darwin":
+        subprocess.run(["open", filepath])
+    elif platform.system() == "Linux":
+        subprocess.run(["xdg-open", filepath])
+
+
 def save_image():
-    pass
+    original_folder = os.path.dirname(filepath)
+    new_filename = f"watermarked_{filename}"
+    save_path = os.path.join(original_folder, new_filename)
+    original.save(save_path)
+    open_file(save_path)
 
 
 # TODO - After adding watermark, present save button
